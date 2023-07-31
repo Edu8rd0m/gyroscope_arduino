@@ -1,54 +1,63 @@
 #include <Wire.h>
 #include <MPU6050.h>
+#include <SR04.h>
 #include <Servo.h>
 
-Servo sg90Y1, sg90Y2, sg90X1, sg90X2;
+Servo sg90; // Gyroscope servo
+int servoPinGyro = 10; // Gyroscope servo pin
+int servoPinElevator = 12; // Ultrasonic sensor servo pin
+int echo_pin = 9; // Ultrasonic sensor echo pin
+int trig_pin = 13; // Ultrasonic sensor trig pin
 
-int servoY1_pin = 12;
-int servoY2_pin = 13;
-int servoX1_pin = 10;
-int servoX2_pin = 11;
+// Ultrasonic sensor servo positions
+int elevatorPositionDown = 0;
+int elevatorPositionUp = 90;
+int updateInterval = 1000;
+int groundDistance = 100;
+long distance;
 
+MPU6050 sensor;
 int16_t ax, ay, az;
 int16_t gx, gy, gz;
 
+SR04 distanceSensor(echo_pin, trig_pin);
+Servo myServo;
+
+
+
 void setup() {
-  sg90Y1.attach(servoY1_pin);
-  sg90Y2.attach(servoY2_pin);
-  sg90X1.attach(servoX1_pin);
-  sg90X2.attach(servoX2_pin);
+  // put your setup code here, to run once:
+  sg90.attach(servoPinGyro);
+  myServo.attach(servoPinElevator);
 
   Wire.begin();
   Serial.begin(9600);
-
   Serial.println("Initializing the sensor");
-
-  if (senser.testConnection()) {
-    Serial.println("Successfully Connected");
-  } else {
-    Serial.println("Connection failed");
-    while (1);
-  }
-
+  sensor.initialize();
+  Serial.println(sensor.testConnection() ? "Successfully Connected" : "Connection failed");
+  delay(1000);
+  Serial.println("Taking Values from the sensor");
   delay(1000);
 }
 
 void loop() {
-  senser.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+  // put your main code here, to run repeatedly:
+   // Ultrasonic sensor servo loop
+  distance = distanceSensor.Distance();
 
-  // Map Y-axis values to servo angles
-  int servoY1_angle = map(ay, -17000, 17000, 0, 180);
-  int servoY2_angle = map(ay, -17000, 17000, 180, 0);
+  if (distance < groundDistance) {
+    myServo.write(elevatorPositionUp);
+  } else {
+    myServo.write(elevatorPositionDown);
+  }
 
-  // Map X-axis values to servo angles
-  int servoX1_angle = map(ax, -17000, 17000, 0, 180);
-  int servoX2_angle = map(ax, -17000, 17000, 180, 0);
+  // Wait time between readings for ultrasonic sensor
+  delay(updateInterval);
 
-  // Set servo positions
-  sg90Y1.write(servoY1_angle);
-  sg90Y2.write(servoY2_angle);
-  sg90X1.write(servoX1_angle);
-  sg90X2.write(servoX2_angle);
-
+  // Gyro servo
+  sensor.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+  ax = map(ax, -17000, 17000, 0, 180);
+  Serial.println(ax);
+  sg90.write(ax);
   delay(200);
 }
